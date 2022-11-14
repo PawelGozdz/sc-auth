@@ -1,20 +1,36 @@
 import { NestFactory } from '@nestjs/core';
-import { Transport } from '@nestjs/microservices';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { ConfigService } from '@nestjs/config';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
+
+import helmet from 'helmet';
 
 async function bootstrap() {
-	const app = await NestFactory.create(AppModule);
+	const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-	app.connectMicroservice({
-		transport: Transport.TCP,
-		options: {
-			host: 'localhost',
-			port: 4000,
-		},
+	const config = app.get(ConfigService);
+
+	app.setGlobalPrefix('api');
+
+	app.enableVersioning({
+		type: VersioningType.URI,
 	});
 
-	await app.startAllMicroservices();
-	await app.listen(3000);
-	console.log('Auth microservice running');
+	app.set('trust proxy', 1);
+	app.use(helmet());
+
+	app.useGlobalPipes(
+		new ValidationPipe({
+			transform: true,
+			whitelist: true,
+		}),
+	);
+
+	app.enableShutdownHooks();
+
+	const PORT = config.get('PORT');
+
+	await app.listen(PORT, () => console.log(`PORT ${PORT}`));
 }
 bootstrap();
