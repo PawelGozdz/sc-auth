@@ -34,7 +34,7 @@ export class AuthService {
 	}
 
 	public async signinLocal(dto: AuthLocalDto): Promise<Tokens> {
-		const user = await this.usersService.getUser({ email: dto.email });
+		const user = await this.usersService.getUniqueUser({ email: dto.email });
 
 		if (!user) {
 			throw new UnauthorizedException(`Invalid credentials`);
@@ -54,7 +54,7 @@ export class AuthService {
 	}
 
 	public async getAuthenticatedUserWithEmailAndPassword(email: string, password: string): Promise<User> {
-		const user = await this.usersService.getUser({ email });
+		const user = await this.usersService.getUniqueUser({ email });
 
 		if (!user) throw new UnauthorizedException(`Invalid credentials`);
 
@@ -63,24 +63,20 @@ export class AuthService {
 		return user;
 	}
 
+	public async getAuthenticatedUserWithJwt(userId: string, email: string): Promise<User> {
+		const user = await this.usersService.getUser({ id: userId, email });
+
+		if (!user) throw new UnauthorizedException(`Invalid credentials`);
+
+		return user;
+	}
+
 	public async logout(userId: string) {
-		await this.usersService.updateOne(
-			{
-				id: userId,
-				hashedRt: {
-					not: null,
-				},
-			},
-			{
-				hashedRt: null,
-			},
-		);
+		await this.usersService.updateOne({ id: userId }, { hashedRt: null });
 		return;
 	}
 
-	public async refreshTokens(userId: string, refreshToken: string) {
-		const user: any = await this.usersService.getUser({ id: userId });
-
+	public async refreshTokens(user: User, refreshToken: string) {
 		if (!user || !user.hashedRt) throw new UnauthorizedException(`Invalid credentials`);
 
 		const refreshTokenMatches = await argon2.verify(user.hashedRt, refreshToken);
