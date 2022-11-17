@@ -1,24 +1,24 @@
-import { ConflictException, Inject, Injectable, ForbiddenException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { ConflictException, Inject, Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
-import { Tokens } from './types';
-import { AuthLocalDto } from './dto';
+import { Tokens } from '../types';
 import { User } from '@prisma/client';
+import { UsersService } from '../../users/services';
+import { AuthLocalDto } from '../dto';
 
 @Injectable()
 export class AuthService {
-	constructor(@Inject(PrismaService) private readonly prisma: PrismaService, @Inject(JwtService) private readonly jwtService: JwtService) {}
+	constructor(@Inject(UsersService) private readonly usersService: UsersService, @Inject(JwtService) private readonly jwtService: JwtService) {}
 
 	public async signupLocal(dto: AuthLocalDto): Promise<Tokens> {
 		const hash = await this.hashData(dto.password);
 		try {
-			const user = await this.prisma.user.create({
-				data: {
-					email: dto.email,
-					hash,
-				},
+			const user = await this.usersService.createtUser({
+				email: dto.email,
+				hash,
 			});
+
+			if (!user) throw new BadRequestException(`Couldn't create user...`);
 
 			const tokens = await this.getTokens(user.id, user.email);
 
@@ -34,20 +34,16 @@ export class AuthService {
 	}
 
 	public async signinLocal(dto: AuthLocalDto): Promise<Tokens> {
-		const user = await this.prisma.user.findUnique({
-			where: {
-				email: dto.email,
-			},
-		});
+		const user = await this.usersService.getUser({ email: dto.email });
 
 		if (!user) {
-			throw new ForbiddenException(`Access Denied`);
+			throw new UnauthorizedException(`Invalid credentials`);
 		}
 
-		const passwordMatch = await this.verifyPassword(user, dto.password);
+		const passwordMatch = await this.verifyPassword(user.hash, dto.password);
 
 		if (!passwordMatch) {
-			throw new ForbiddenException(`Access Denied`);
+			throw new UnauthorizedException(`Invalid credentials`);
 		}
 
 		const tokens = await this.getTokens(user.id, user.email);
@@ -57,31 +53,39 @@ export class AuthService {
 		return tokens;
 	}
 
+	public async getAuthenticatedUserWithEmailAndPassword(email: string, password: string): Promise<User> {
+		const user = await this.usersService.getUser({ email });
+
+		if (!user) throw new UnauthorizedException(`Invalid credentials`);
+
+		await this.verifyPassword(user.hash, password);
+
+		return user;
+	}
+
 	public async logout(userId: string) {
-		await this.prisma.user.updateMany({
-			where: {
+		await this.usersService.updateOne(
+			{
 				id: userId,
 				hashedRt: {
 					not: null,
 				},
 			},
-			data: {
+			{
 				hashedRt: null,
 			},
-		});
+		);
 		return;
 	}
 
 	public async refreshTokens(userId: string, refreshToken: string) {
-		const user: any = await this.prisma.user.findUnique({
-			where: { id: userId },
-		});
+		const user: any = await this.usersService.getUser({ id: userId });
 
-		if (!user || !user.hashedRt) throw new ForbiddenException(`Access Denied!`);
+		if (!user || !user.hashedRt) throw new UnauthorizedException(`Invalid credentials`);
 
 		const refreshTokenMatches = await argon2.verify(user.hashedRt, refreshToken);
 
-		if (!refreshTokenMatches) throw new ForbiddenException(`Access Denied!`);
+		if (!refreshTokenMatches) throw new UnauthorizedException(`Invalid credentials`);
 
 		const tokens = await this.getTokens(user.id, user.email);
 
@@ -92,11 +96,11 @@ export class AuthService {
 
 	// Utitlities
 
-	public async verifyPassword(user: User, password: string): Promise<boolean> {
-		const passwordMatches = await argon2.verify(user.hash, password);
+	public async verifyPassword(hash: string, password: string): Promise<boolean> {
+		const passwordMatches = await this.passwordVerify(hash, password);
 
 		if (typeof passwordMatches !== 'boolean') {
-			throw new ForbiddenException(`Access Denied`);
+			throw new UnauthorizedException(`Invalid credentials`);
 		}
 
 		return passwordMatches;
@@ -132,18 +136,20 @@ export class AuthService {
 	}
 
 	async updatedtHash(userId: string, rt: string) {
-		const hash = await this.hashData(rt);
-		await this.prisma.user.update({
-			where: {
-				id: userId,
-			},
-			data: {
-				hashedRt: hash,
-			},
-		});
+		try {
+			const hash = await this.hashData(rt);
+
+			return this.usersService.updateOne({ id: userId }, { hashedRt: hash });
+		} catch (error) {
+			throw error;
+		}
 	}
 
 	private async hashData(data: string) {
 		return argon2.hash(data, { timeCost: 36 });
+	}
+
+	private async passwordVerify(hash: string, password: string) {
+		return await argon2.verify(hash, password);
 	}
 }

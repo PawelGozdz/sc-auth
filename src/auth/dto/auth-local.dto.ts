@@ -1,12 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, IsDefined } from 'class-validator';
+import { PickType } from '@nestjs/swagger';
+import { GlobalDto } from '../../common';
 
-export class AuthLocalDto {
-	@IsDefined()
-	@IsEmail()
-	email: string;
-
-	@IsDefined()
-	@IsNotEmpty()
-	@IsString()
-	password: string;
-}
+export class AuthLocalDto extends PickType(GlobalDto, ['email', 'password']) {}
