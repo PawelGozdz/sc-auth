@@ -3,8 +3,7 @@ import { validationSchema } from './config/validation';
 import { PrismaModule } from './prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth';
-import { AppController } from './app.controller';
-import { AtGuard } from './common/guards';
+import { AccessTokenGuard } from './common/guards';
 import { UsersModule } from './users';
 
 @Module({
@@ -20,7 +19,6 @@ import { UsersModule } from './users';
 		AuthModule,
 		UsersModule,
 	],
-	providers: [{ provide: 'APP_GUARD', useClass: AtGuard }],
-	controllers: [AppController],
+	providers: [{ provide: 'APP_GUARD', useClass: AccessTokenGuard }],
 })
 export class AppModule {}

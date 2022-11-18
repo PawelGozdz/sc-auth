@@ -1,6 +1,11 @@
-import { Tokens } from './';
+import { User } from '@prisma/client';
+import { Response } from 'express';
+
+type AuthResponse = {
+	user: User;
+};
 
 export type IAuthController = {
-	signin: (bodyDto: any) => Promise<Tokens>;
-	signup: (bodyDto: any) => Promise<Tokens>;
+	signin: (bodyDto: any, res: Response) => Promise<Response<AuthResponse>>;
+	signup: (bodyDto: any, res: Response) => Promise<Response<AuthResponse>>;
 };
