@@ -92,7 +92,7 @@ export class AuthService {
 
 		const user = await this.usersService.getUser({ id: userId });
 
-		if (!user) throw new UnauthorizedException(`Invalid credentials`);
+		if (!user || !user.hashedRt) throw new UnauthorizedException(`Invalid credentials`);
 
 		const isAuth = await this.hashService.hashAndTextVerify(user.hashedRt!, token);
 

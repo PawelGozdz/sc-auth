@@ -24,6 +24,8 @@ export class HashService {
 	}
 
 	public async hashAndTextVerify(hash: string, text: any) {
+		if (!hash || !text) return false;
+
 		return await argon2.verify(hash, text);
 	}
 }
