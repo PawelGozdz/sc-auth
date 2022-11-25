@@ -22,4 +22,15 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy, OnMo
 	async onModuleDestroy() {
 		await this.$disconnect();
 	}
+
+	async cleanDatabase() {
+		if (this.configService.get('NODE_ENV') === 'production') return;
+
+		const models = Reflect.ownKeys(this)
+			// @ts-expect-error
+			.filter((key: any) => key[0] !== '_' && 'deleteMany' in this[key]);
+
+		// @ts-expect-error
+		return Promise.all(models.map((modelKey: any) => this[modelKey].deleteMany()));
+	}
 }

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { validationSchema } from './config/validation';
-import { PrismaModule } from './prisma/prisma.module';
+import { PrismaModule } from './prisma';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth';
 import { AccessTokenGuard } from './common/guards';

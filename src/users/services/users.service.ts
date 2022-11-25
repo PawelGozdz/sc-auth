@@ -1,3 +1,5 @@
+import { ConflictException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma, User } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -35,7 +37,10 @@ export class UsersService {
 					...query,
 				},
 			});
-		} catch (error) {
+		} catch (error: any) {
+			if (error.code === 'P2002') {
+				throw new ConflictException();
+			}
 			throw error;
 		}
 	}
@@ -48,7 +53,10 @@ export class UsersService {
 				data,
 				select,
 			});
-		} catch (error) {
+		} catch (error: any) {
+			if (error.code === 'P2025') {
+				throw new NotFoundException();
+			}
 			throw error;
 		}
 	}
